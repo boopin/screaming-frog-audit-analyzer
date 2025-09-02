@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 # Configure page settings
 st.set_page_config(
-    page_title="SEO Pulse - Professional SEO Audit Tool",
+    page_title="Screaming Frog Audit Analyzer - Professional SEO Audit Tool",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -804,7 +804,7 @@ def display_header():
     """Display the main header with branding"""
     st.markdown("""
     <div class="main-header">
-        <h1>📊 SEO Pulse</h1>
+        <h1>📊 Screaming Frog Report Analyzer</h1>
         <p style="font-size: 1.2rem; margin-bottom: 0;">
             Enhanced SEO Analysis with Actionable Insights and Visualizations
         </p>

@@ -816,7 +816,7 @@ def display_sidebar_info():
     with st.sidebar:
         st.markdown("""
         <div class="sidebar-section">
-            <h3>📈 About SEO Pulse Enhanced</h3>
+            <h3>📈 About Screaming Frog Audit Analyzer</h3>
             <p>Advanced SEO analysis with heatmaps, actionable recommendations, and executive summaries.</p>
         </div>
         """, unsafe_allow_html=True)

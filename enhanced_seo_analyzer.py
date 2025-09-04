@@ -93,9 +93,23 @@ st.markdown("""
         border-radius: 8px;
         margin-bottom: 1rem;
     }
+    
+    .discovery-section {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        border-left: 4px solid #667eea;
+    }
+    
+    .bullet-list {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
-
 class EnhancedSEOScorer:
     def __init__(self):
         self.weights = {
@@ -158,6 +172,218 @@ class EnhancedSEOScorer:
             }
         
         return page_type_analysis
+
+    def generate_detailed_discoveries(self, df, content_detailed, technical_detailed, ux_detailed, offpage_detailed):
+        """Generate detailed bullet-point discoveries for each category"""
+        
+        discoveries = {
+            'Content SEO': [],
+            'Technical SEO': [],
+            'User Experience': [],
+            'Off-Page SEO': []
+        }
+        
+        total_pages = len(df)
+        
+        # Content SEO Discoveries
+        content_discoveries = []
+        
+        # Meta Title Analysis
+        if 'Title 1' in df.columns:
+            missing_titles = df['Title 1'].isna().sum()
+            if missing_titles > 0:
+                content_discoveries.append(f"• {missing_titles} out of {total_pages} pages ({(missing_titles/total_pages)*100:.1f}%) are missing meta titles")
+            
+            if 'Title 1 Length' in df.columns:
+                valid_titles = df['Title 1'].notna()
+                if valid_titles.sum() > 0:
+                    title_lengths = df[valid_titles]['Title 1 Length']
+                    short_titles = (title_lengths < 30).sum()
+                    long_titles = (title_lengths > 60).sum()
+                    optimal_titles = ((title_lengths >= 30) & (title_lengths <= 60)).sum()
+                    
+                    if short_titles > 0:
+                        content_discoveries.append(f"• {short_titles} pages have titles shorter than 30 characters (too short)")
+                    if long_titles > 0:
+                        content_discoveries.append(f"• {long_titles} pages have titles longer than 60 characters (may be truncated)")
+                    if optimal_titles > 0:
+                        content_discoveries.append(f"• {optimal_titles} pages have optimal title lengths (30-60 characters)")
+                    
+                    avg_title_length = title_lengths.mean()
+                    content_discoveries.append(f"• Average title length: {avg_title_length:.1f} characters")
+        
+        # Meta Description Analysis
+        if 'Meta Description 1' in df.columns:
+            missing_desc = df['Meta Description 1'].isna().sum()
+            if missing_desc > 0:
+                content_discoveries.append(f"• {missing_desc} out of {total_pages} pages ({(missing_desc/total_pages)*100:.1f}%) are missing meta descriptions")
+            
+            if 'Meta Description 1 Length' in df.columns:
+                valid_desc = df['Meta Description 1'].notna()
+                if valid_desc.sum() > 0:
+                    desc_lengths = df[valid_desc]['Meta Description 1 Length']
+                    short_desc = (desc_lengths < 120).sum()
+                    long_desc = (desc_lengths > 160).sum()
+                    optimal_desc = ((desc_lengths >= 120) & (desc_lengths <= 160)).sum()
+                    
+                    if short_desc > 0:
+                        content_discoveries.append(f"• {short_desc} pages have descriptions shorter than 120 characters")
+                    if long_desc > 0:
+                        content_discoveries.append(f"• {long_desc} pages have descriptions longer than 160 characters")
+                    if optimal_desc > 0:
+                        content_discoveries.append(f"• {optimal_desc} pages have optimal description lengths (120-160 characters)")
+        
+        # H1 Tag Analysis
+        if 'H1-1' in df.columns:
+            missing_h1 = df['H1-1'].isna().sum()
+            if missing_h1 > 0:
+                content_discoveries.append(f"• {missing_h1} out of {total_pages} pages ({(missing_h1/total_pages)*100:.1f}%) are missing H1 tags")
+            
+            multiple_h1 = 0
+            for col in df.columns:
+                if col.startswith('H1-') and col != 'H1-1':
+                    multiple_h1 += df[col].notna().sum()
+            if multiple_h1 > 0:
+                content_discoveries.append(f"• {multiple_h1} instances of multiple H1 tags found (should have only one H1 per page)")
+        
+        # Internal Linking Analysis
+        if 'Inlinks' in df.columns:
+            no_inlinks = (df['Inlinks'] == 0).sum()
+            if no_inlinks > 0:
+                content_discoveries.append(f"• {no_inlinks} pages have no internal links pointing to them")
+            
+            avg_inlinks = df['Inlinks'].mean()
+            max_inlinks = df['Inlinks'].max()
+            content_discoveries.append(f"• Average internal links per page: {avg_inlinks:.1f}")
+            content_discoveries.append(f"• Most linked page has {max_inlinks} internal links")
+        
+        discoveries['Content SEO'] = content_discoveries
+        
+        # Technical SEO Discoveries
+        technical_discoveries = []
+        
+        # Response Time Analysis
+        if 'Response Time' in df.columns:
+            slow_pages = (df['Response Time'] > 1.0).sum()
+            very_slow_pages = (df['Response Time'] > 3.0).sum()
+            fast_pages = (df['Response Time'] <= 1.0).sum()
+            
+            avg_response = df['Response Time'].mean()
+            max_response = df['Response Time'].max()
+            
+            technical_discoveries.append(f"• Average response time: {avg_response:.2f} seconds")
+            technical_discoveries.append(f"• {fast_pages} pages load in under 1 second (good performance)")
+            
+            if slow_pages > 0:
+                technical_discoveries.append(f"• {slow_pages} pages have response times over 1 second")
+            if very_slow_pages > 0:
+                technical_discoveries.append(f"• {very_slow_pages} pages have response times over 3 seconds (critical issue)")
+            
+            technical_discoveries.append(f"• Slowest page response time: {max_response:.2f} seconds")
+        
+        # Status Code Analysis
+        if 'Status Code' in df.columns:
+            status_counts = df['Status Code'].value_counts()
+            for status_code, count in status_counts.items():
+                percentage = (count / total_pages) * 100
+                if status_code == 200:
+                    technical_discoveries.append(f"• {count} pages ({percentage:.1f}%) return successful 200 status codes")
+                elif status_code == 404:
+                    technical_discoveries.append(f"• {count} pages ({percentage:.1f}%) return 404 Not Found errors")
+                elif status_code in [301, 302]:
+                    technical_discoveries.append(f"• {count} pages ({percentage:.1f}%) are redirects (status {status_code})")
+                else:
+                    technical_discoveries.append(f"• {count} pages ({percentage:.1f}%) return {status_code} status codes")
+        
+        # Indexability Analysis
+        if 'Indexability' in df.columns:
+            indexability_counts = df['Indexability'].value_counts()
+            for status, count in indexability_counts.items():
+                percentage = (count / total_pages) * 100
+                technical_discoveries.append(f"• {count} pages ({percentage:.1f}%) are {status}")
+        
+        # HTTPS Analysis
+        if 'Address' in df.columns:
+            https_pages = df['Address'].str.startswith('https://').sum()
+            http_pages = df['Address'].str.startswith('http://').sum()
+            
+            if https_pages > 0:
+                technical_discoveries.append(f"• {https_pages} pages ({(https_pages/total_pages)*100:.1f}%) use HTTPS (secure)")
+            if http_pages > 0:
+                technical_discoveries.append(f"• {http_pages} pages ({(http_pages/total_pages)*100:.1f}%) use HTTP (not secure)")
+        
+        discoveries['Technical SEO'] = technical_discoveries
+        
+        # User Experience Discoveries
+        ux_discoveries = []
+        
+        # Core Web Vitals Analysis
+        if 'Largest Contentful Paint Time (ms)' in df.columns:
+            lcp_good = (df['Largest Contentful Paint Time (ms)'] <= 2500).sum()
+            lcp_needs_improvement = ((df['Largest Contentful Paint Time (ms)'] > 2500) & 
+                                   (df['Largest Contentful Paint Time (ms)'] <= 4000)).sum()
+            lcp_poor = (df['Largest Contentful Paint Time (ms)'] > 4000).sum()
+            
+            avg_lcp = df['Largest Contentful Paint Time (ms)'].mean() / 1000  # Convert to seconds
+            
+            ux_discoveries.append(f"• Average Largest Contentful Paint: {avg_lcp:.2f} seconds")
+            ux_discoveries.append(f"• {lcp_good} pages have good LCP (≤2.5s)")
+            if lcp_needs_improvement > 0:
+                ux_discoveries.append(f"• {lcp_needs_improvement} pages need LCP improvement (2.5-4s)")
+            if lcp_poor > 0:
+                ux_discoveries.append(f"• {lcp_poor} pages have poor LCP (>4s)")
+        
+        # Cumulative Layout Shift Analysis
+        if 'Cumulative Layout Shift' in df.columns:
+            cls_good = (df['Cumulative Layout Shift'] <= 0.1).sum()
+            cls_needs_improvement = ((df['Cumulative Layout Shift'] > 0.1) & 
+                                   (df['Cumulative Layout Shift'] <= 0.25)).sum()
+            cls_poor = (df['Cumulative Layout Shift'] > 0.25).sum()
+            
+            avg_cls = df['Cumulative Layout Shift'].mean()
+            
+            ux_discoveries.append(f"• Average Cumulative Layout Shift: {avg_cls:.3f}")
+            ux_discoveries.append(f"• {cls_good} pages have good CLS (≤0.1)")
+            if cls_needs_improvement > 0:
+                ux_discoveries.append(f"• {cls_needs_improvement} pages need CLS improvement (0.1-0.25)")
+            if cls_poor > 0:
+                ux_discoveries.append(f"• {cls_poor} pages have poor CLS (>0.25)")
+        
+        # Mobile Analysis
+        if 'Viewport' in df.columns:
+            has_viewport = df['Viewport'].notna().sum()
+            missing_viewport = df['Viewport'].isna().sum()
+            
+            if has_viewport > 0:
+                ux_discoveries.append(f"• {has_viewport} pages have viewport meta tags (mobile-friendly)")
+            if missing_viewport > 0:
+                ux_discoveries.append(f"• {missing_viewport} pages missing viewport meta tags (not mobile-optimized)")
+        
+        # Image Analysis
+        if 'Images' in df.columns:
+            total_images = df['Images'].sum() if df['Images'].notna().any() else 0
+            pages_with_images = (df['Images'] > 0).sum() if 'Images' in df.columns else 0
+            
+            if total_images > 0:
+                avg_images = df['Images'].mean()
+                ux_discoveries.append(f"• Total images across all pages: {total_images}")
+                ux_discoveries.append(f"• Average images per page: {avg_images:.1f}")
+                ux_discoveries.append(f"• {pages_with_images} pages contain images")
+        
+        discoveries['User Experience'] = ux_discoveries
+        
+        # Off-Page SEO Discoveries (general insights)
+        offpage_discoveries = [
+            "• Authority score analysis requires external backlink data",
+            "• Backlink profile assessment needs comprehensive link analysis",
+            "• Social signals and brand mentions not available in crawl data",
+            "• Competitor comparison requires additional SEO tools",
+            "• Domain authority metrics need third-party integration"
+        ]
+        
+        discoveries['Off-Page SEO'] = offpage_discoveries
+        
+        return discoveries
 
     def generate_recommendations(self, df, content_score, technical_score, ux_score):
         """Generate specific, prioritized recommendations"""
@@ -587,8 +813,7 @@ class EnhancedSEOScorer:
 
         overall_score = sum(weighted_scores.values()) * 100
         return round(overall_score)
-
-def create_heatmap_visualization(heatmap_data):
+        def create_heatmap_visualization(heatmap_data):
     """Create a heatmap showing issues by page type"""
     if heatmap_data.empty:
         return None
@@ -686,7 +911,7 @@ def display_executive_summary(all_results):
     """Display executive summary with key findings"""
     st.markdown("""
     <div class="executive-summary">
-        <h2>📊 Executive Summary</h2>
+        <h2>Executive Summary</h2>
     </div>
     """, unsafe_allow_html=True)
     
@@ -742,8 +967,6 @@ def display_executive_summary(all_results):
 
 def display_recommendations(recommendations, site_key=""):
     """Display actionable recommendations with priority and difficulty"""
-    st.markdown("## 🎯 Actionable Recommendations")
-    
     if not recommendations:
         st.info("No specific recommendations generated. Your site appears to be well-optimized!")
         return
@@ -755,17 +978,17 @@ def display_recommendations(recommendations, site_key=""):
     
     # Display high priority first
     if high_priority:
-        st.markdown("### 🚨 High Priority Items")
+        st.markdown("### High Priority Items")
         for i, rec in enumerate(high_priority):
             display_recommendation_card(rec, f"{site_key}_high_{i}")
     
     if medium_priority:
-        st.markdown("### ⚠️ Medium Priority Items")
+        st.markdown("### Medium Priority Items")
         for i, rec in enumerate(medium_priority):
             display_recommendation_card(rec, f"{site_key}_medium_{i}")
     
     if low_priority:
-        st.markdown("### 📝 Low Priority Items")
+        st.markdown("### Low Priority Items")
         for i, rec in enumerate(low_priority):
             display_recommendation_card(rec, f"{site_key}_low_{i}")
 
@@ -794,9 +1017,9 @@ def display_recommendation_card(rec, key):
         </div>
         """, unsafe_allow_html=True)
         
-        # Resources section - removed key parameter for compatibility
+        # Resources section
         if rec.get('resources'):
-            with st.expander("📚 Helpful Resources"):
+            with st.expander("Helpful Resources"):
                 for resource in rec['resources']:
                     st.markdown(f"• [{resource['title']}]({resource['url']})")
 
@@ -804,7 +1027,7 @@ def display_header():
     """Display the main header with branding"""
     st.markdown("""
     <div class="main-header">
-        <h1>📊 Screaming Frog Report Analyzer</h1>
+        <h1>Screaming Frog Report Analyzer</h1>
         <p style="font-size: 1.2rem; margin-bottom: 0;">
             Enhanced SEO Analysis with Actionable Insights and Visualizations
         </p>
@@ -816,27 +1039,29 @@ def display_sidebar_info():
     with st.sidebar:
         st.markdown("""
         <div class="sidebar-section">
-            <h3>📈 About Screaming Frog Audit Analyzer</h3>
+            <h3>About Screaming Frog Audit Analyzer</h3>
             <p>Advanced SEO analysis with heatmaps, actionable recommendations, and executive summaries.</p>
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown("""
         <div class="sidebar-section">
-            <h3>🆕 New Features</h3>
+            <h3>New Features</h3>
             <ul>
                 <li>Page type analysis heatmaps</li>
                 <li>Prioritized action items</li>
                 <li>Implementation difficulty ratings</li>
                 <li>Executive summary dashboards</li>
                 <li>Resource links for fixes</li>
+                <li>Detailed audit discoveries</li>
+                <li>Enhanced Excel exports</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
         
         st.markdown("""
         <div class="sidebar-section">
-            <h3>🎯 Analysis Categories</h3>
+            <h3>Analysis Categories</h3>
             <ul>
                 <li><strong>Content SEO (40%)</strong><br>Meta titles, descriptions, H1 tags, internal linking</li>
                 <li><strong>Technical SEO (40%)</strong><br>Response times, status codes, indexability</li>
@@ -844,15 +1069,13 @@ def display_sidebar_info():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-
-def main():
+        def main():
     display_header()
     display_sidebar_info()
     
     # File upload section
     st.markdown("""
     <div class="upload-section">
-        <div class="feature-icon">📁</div>
         <h3>Upload Your SEO Data</h3>
         <p>Select multiple Screaming Frog export files for enhanced analysis with heatmaps and actionable recommendations</p>
     </div>
@@ -899,6 +1122,9 @@ def main():
                 recommendations = scorer.generate_recommendations(df, content_score, technical_score, ux_score)
                 page_type_analysis = scorer.analyze_page_types(df)
                 
+                # Generate detailed discoveries
+                discoveries = scorer.generate_detailed_discoveries(df, content_detailed, technical_detailed, ux_detailed, offpage_detailed)
+                
                 # Store comprehensive results
                 result = {
                     'file_name': uploaded_file.name,
@@ -908,6 +1134,7 @@ def main():
                     'ux_score': ux_score,
                     'recommendations': recommendations,
                     'page_type_analysis': page_type_analysis,
+                    'discoveries': discoveries,
                     'df': df
                 }
                 all_results.append(result)
@@ -930,7 +1157,8 @@ def main():
                     "Technical Analysis": technical_detailed,
                     "UX Analysis": ux_detailed,
                     "Offpage Analysis": offpage_detailed,
-                    "Overall Score": overall_score
+                    "Overall Score": overall_score,
+                    "Discoveries": discoveries
                 })
                 
             except Exception as e:
@@ -949,17 +1177,17 @@ def main():
             
             # Create tabs for different views
             tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-                "📊 Performance Overview", 
-                "🔥 Heatmap Analysis", 
-                "🎯 Action Items", 
-                "📋 Detailed Audits", 
-                "🏆 Competitive Analysis", 
-                "📥 Export Results"
+                "Performance Overview", 
+                "Heatmap Analysis", 
+                "Action Items", 
+                "Detailed Audits", 
+                "Competitive Analysis", 
+                "Export Results"
             ])
             
             with tab1:
-                # Performance Overview (existing functionality)
-                st.markdown("## 📊 Performance Overview")
+                # Performance Overview
+                st.markdown("## Performance Overview")
                 
                 col1, col2, col3, col4 = st.columns(4)
                 
@@ -985,7 +1213,7 @@ def main():
                 
                 for idx, result in enumerate(sorted_results):
                     site_name = result['file_name'].replace('.xlsx', '').replace('_', ' ')
-                    with st.expander(f"🏢 {site_name} - Score: {result['overall_score']}/100"):
+                    with st.expander(f"{site_name} - Score: {result['overall_score']}/100"):
                         col1, col2, col3 = st.columns(3)
                         
                         with col1:
@@ -1001,8 +1229,8 @@ def main():
                             st.plotly_chart(fig3, use_container_width=True, key=f"ux_gauge_{idx}")
             
             with tab2:
-                # Heatmap Analysis - NEW FEATURE
-                st.markdown("## 🔥 SEO Issues Heatmap Analysis")
+                # Heatmap Analysis
+                st.markdown("## SEO Issues Heatmap Analysis")
                 st.markdown("This heatmap shows which page types have the most SEO issues, helping you prioritize fixes.")
                 
                 # Combine all page type analyses
@@ -1051,8 +1279,8 @@ def main():
                     st.info("No page type data available for heatmap analysis. Upload files with URL data for enhanced visualization.")
             
             with tab3:
-                # Action Items - NEW FEATURE
-                st.markdown("## 🎯 Prioritized Action Items")
+                # Action Items with Enhanced Excel Export
+                st.markdown("## Prioritized Action Items")
                 
                 # Combine all recommendations
                 all_recommendations = []
@@ -1064,21 +1292,183 @@ def main():
                         all_recommendations.append(rec_copy)
                 
                 if all_recommendations:
+                    # Add Excel export button at the top
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        st.markdown("### Download Action Items")
+                        st.markdown("Export all recommendations to Excel with detailed action plans and resource links.")
+                    
+                    with col2:
+                        # Create comprehensive action items DataFrame
+                        action_items_data = []
+                        for i, rec in enumerate(all_recommendations, 1):
+                            # Format resources as text
+                            resources_text = ""
+                            if rec.get('resources'):
+                                resources_list = [f"{r['title']}: {r['url']}" for r in rec['resources']]
+                                resources_text = " | ".join(resources_list)
+                            
+                            action_items_data.append({
+                                'Item #': i,
+                                'Site': rec['site'],
+                                'Category': rec['category'],
+                                'Priority': rec['priority'],
+                                'Issue': rec['issue'],
+                                'Action Required': rec['action'],
+                                'Difficulty': rec['difficulty'],
+                                'Impact': rec['impact'],
+                                'Resources': resources_text,
+                                'Status': 'Pending'  # Add status column for tracking
+                            })
+                        
+                        action_items_df = pd.DataFrame(action_items_data)
+                        
+                        # Create Excel export with multiple sheets
+                        output = BytesIO()
+                        try:
+                            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                                # Main action items sheet
+                                action_items_df.to_excel(writer, sheet_name='Action_Items', index=False)
+                                
+                                # Summary sheet by priority
+                                priority_summary = action_items_df.groupby(['Priority', 'Site']).size().reset_index(name='Count')
+                                priority_summary.to_excel(writer, sheet_name='Priority_Summary', index=False)
+                                
+                                # Summary sheet by category
+                                category_summary = action_items_df.groupby(['Category', 'Site']).size().reset_index(name='Count')
+                                category_summary.to_excel(writer, sheet_name='Category_Summary', index=False)
+                            
+                            st.download_button(
+                                label="📊 Download Action Items",
+                                data=output.getvalue(),
+                                file_name=f"SEO_Action_Items_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                help="Download comprehensive action items list with priorities, resources, and tracking"
+                            )
+                        except Exception as e:
+                            st.error(f"Error creating Excel file: {str(e)}")
+                            # Fallback to basic CSV
+                            csv_data = action_items_df.to_csv(index=False)
+                            st.download_button(
+                                label="📄 Download as CSV (Fallback)",
+                                data=csv_data,
+                                file_name=f"SEO_Action_Items_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv"
+                            )
+                    
+                    st.markdown("---")
+                    
+                    # Display action items summary
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        total_items = len(all_recommendations)
+                        st.metric("Total Action Items", total_items)
+                    
+                    with col2:
+                        high_priority_count = len([r for r in all_recommendations if r['priority'] == 'High'])
+                        st.metric("High Priority", high_priority_count, delta=f"{high_priority_count/total_items*100:.0f}%")
+                    
+                    with col3:
+                        easy_fixes = len([r for r in all_recommendations if r['difficulty'] == 'Easy'])
+                        st.metric("Quick Wins", easy_fixes, delta="Easy fixes")
+                    
+                    with col4:
+                        high_impact = len([r for r in all_recommendations if r['impact'] == 'High'])
+                        st.metric("High Impact", high_impact, delta=f"{high_impact/total_items*100:.0f}%")
+                    
+                    st.markdown("---")
+                    
                     # Display recommendations by site
                     for idx, result in enumerate(all_results):
                         site_name = result['file_name'].replace('.xlsx', '').replace('_', ' ')
                         site_recs = result['recommendations']
                         
                         if site_recs:
-                            st.markdown(f"### 🏢 {site_name}")
+                            # Site header with summary metrics
+                            col1, col2, col3 = st.columns([2, 1, 1])
+                            
+                            with col1:
+                                st.markdown(f"### {site_name}")
+                            
+                            with col2:
+                                site_high_priority = len([r for r in site_recs if r['priority'] == 'High'])
+                                st.metric("High Priority Items", site_high_priority)
+                            
+                            with col3:
+                                site_easy_fixes = len([r for r in site_recs if r['difficulty'] == 'Easy'])
+                                st.metric("Quick Wins", site_easy_fixes)
+                            
                             display_recommendations(site_recs, f"site_{idx}")
                             st.markdown("---")
+                    
+                    # Additional analysis section
+                    st.markdown("### 📈 Action Items Analysis")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Priority distribution chart
+                        priority_counts = pd.DataFrame(all_recommendations)['priority'].value_counts()
+                        fig_priority = px.pie(
+                            values=priority_counts.values, 
+                            names=priority_counts.index,
+                            title="Action Items by Priority",
+                            color_discrete_map={
+                                'High': '#dc3545',
+                                'Medium': '#ffc107', 
+                                'Low': '#28a745'
+                            }
+                        )
+                        st.plotly_chart(fig_priority, use_container_width=True)
+                    
+                    with col2:
+                        # Category distribution chart
+                        category_counts = pd.DataFrame(all_recommendations)['category'].value_counts()
+                        fig_category = px.bar(
+                            x=category_counts.values,
+                            y=category_counts.index,
+                            orientation='h',
+                            title="Action Items by Category",
+                            color=category_counts.values,
+                            color_continuous_scale='viridis'
+                        )
+                        fig_category.update_layout(showlegend=False)
+                        st.plotly_chart(fig_category, use_container_width=True)
+                
                 else:
                     st.success("🎉 Excellent! No major issues found across all sites.")
+                    
+                    # Still provide an empty template for download
+                    st.markdown("### Download Action Items Template")
+                    template_data = pd.DataFrame({
+                        'Item #': [1],
+                        'Site': ['Example Site'],
+                        'Category': ['Content SEO'],
+                        'Priority': ['Medium'],
+                        'Issue': ['Example issue'],
+                        'Action Required': ['Example action'],
+                        'Difficulty': ['Easy'],
+                        'Impact': ['Medium'],
+                        'Resources': ['Example resource links'],
+                        'Status': ['Pending']
+                    })
+                    
+                    output = BytesIO()
+                    template_data.to_excel(output, index=False)
+                    
+                    st.download_button(
+                        label="📊 Download Template",
+                        data=output.getvalue(),
+                        file_name=f"SEO_Action_Items_Template.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        help="Download template for tracking action items"
+                    )
             
             with tab4:
-                # Detailed audit tables (existing functionality)
-                st.markdown("## 📋 Detailed SEO Audit Tables")
+                # Enhanced Detailed Audits with Bullet Points and Excel Export
+                st.markdown("## 📋 Detailed SEO Audit Tables with Discoveries")
                 
                 for i, analysis in enumerate(detailed_analyses):
                     site_name = analysis['File Name'].replace('.xlsx', '').replace('_', ' ')
@@ -1100,43 +1490,77 @@ def main():
                         """, unsafe_allow_html=True)
                     
                     with col3:
-                        st.markdown("**Export This Audit:**")
+                        st.markdown("**Export Audit Data:**")
                         
-                        # Create export data (simplified for brevity)
+                        # Create comprehensive export data
                         audit_data = []
+                        discoveries = analysis['Discoveries']
+                        
                         for category, analysis_data in [
                             ('Content SEO', analysis['Content Analysis']),
                             ('Technical SEO', analysis['Technical Analysis']),
                             ('User Experience', analysis['UX Analysis']),
                             ('Off-Page SEO', analysis['Offpage Analysis'])
                         ]:
-                            audit_data.append([category, '', ''])
+                            audit_data.append([category, '', '', ''])
+                            
+                            # Add detailed analysis items
                             for key, details in analysis_data.items():
                                 status = "✓" if details['status'] == '✓' else "✗"
                                 if key in ['mobile_speed', 'desktop_speed']:
                                     status = details['status']
                                 improvement = " - Needs Improvement" if details.get('needs_improvement', False) else ""
-                                audit_data.append(['', details['description'], f"{status}{improvement}"])
+                                audit_data.append(['', details['description'], f"{status}{improvement}", f"{details['score']}/100"])
+                            
+                            # Add bullet-point discoveries
+                            if category in discoveries and discoveries[category]:
+                                audit_data.append(['', '--- Key Discoveries ---', '', ''])
+                                for discovery in discoveries[category]:
+                                    audit_data.append(['', discovery, '', ''])
+                            
+                            audit_data.append(['', '', '', ''])  # Add spacing
                         
-                        audit_df = pd.DataFrame(audit_data, columns=['Category', 'Factor', 'Status'])
+                        audit_df = pd.DataFrame(audit_data, columns=['Category', 'Factor', 'Status', 'Score'])
                         
-                        # Excel export
+                        # Excel export with enhanced formatting
                         output = BytesIO()
                         try:
                             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                                # Main audit sheet
                                 audit_df.to_excel(writer, sheet_name='SEO_Audit', index=False)
+                                
+                                # Discoveries only sheet
+                                discoveries_data = []
+                                for category, discovery_list in discoveries.items():
+                                    discoveries_data.append([category, '', ''])
+                                    for discovery in discovery_list:
+                                        discoveries_data.append(['', discovery, ''])
+                                    discoveries_data.append(['', '', ''])
+                                
+                                discoveries_df = pd.DataFrame(discoveries_data, columns=['Category', 'Discovery', 'Notes'])
+                                discoveries_df.to_excel(writer, sheet_name='Key_Discoveries', index=False)
                             
                             st.download_button(
                                 label=f"📊 Excel - {site_name}",
                                 data=output.getvalue(),
-                                file_name=f"{site_name.replace(' ', '_')}_SEO_Audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                file_name=f"{site_name.replace(' ', '_')}_SEO_Detailed_Audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key=f"excel_export_{i}"
+                                key=f"detailed_excel_export_{i}",
+                                help="Download detailed audit with discoveries and analysis"
                             )
                         except Exception as e:
                             st.error(f"Error creating Excel file: {str(e)}")
+                            # Fallback to CSV
+                            csv_data = audit_df.to_csv(index=False)
+                            st.download_button(
+                                label="📄 CSV Fallback",
+                                data=csv_data,
+                                file_name=f"{site_name.replace(' ', '_')}_SEO_Audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                mime="text/csv",
+                                key=f"detailed_csv_export_{i}"
+                            )
                     
-                    # Display simplified audit tables
+                    # Display audit categories with discoveries
                     for category, analysis_data in [
                         ('Content SEO', analysis['Content Analysis']),
                         ('Technical SEO', analysis['Technical Analysis']),
@@ -1144,21 +1568,43 @@ def main():
                         ('Off-Page SEO', analysis['Offpage Analysis'])
                     ]:
                         st.markdown(f"#### {category}")
-                        table_data = []
-                        for key, details in analysis_data.items():
-                            status = "✓" if details['status'] == '✓' else "✗"
-                            if key in ['mobile_speed', 'desktop_speed']:
-                                status = details['status']
-                            improvement = " - Needs Improvement" if details.get('needs_improvement', False) else ""
-                            table_data.append([details['description'], f"{status}{improvement}"])
                         
-                        table_df = pd.DataFrame(table_data, columns=['Factor', 'Status'])
-                        st.table(table_df)
+                        # Create two columns: audit table and discoveries
+                        col1, col2 = st.columns([1, 1])
+                        
+                        with col1:
+                            st.markdown("**Audit Results:**")
+                            table_data = []
+                            for key, details in analysis_data.items():
+                                status = "✓" if details['status'] == '✓' else "✗"
+                                if key in ['mobile_speed', 'desktop_speed']:
+                                    status = details['status']
+                                improvement = " - Needs Improvement" if details.get('needs_improvement', False) else ""
+                                table_data.append([details['description'], f"{status}{improvement}"])
+                            
+                            table_df = pd.DataFrame(table_data, columns=['Factor', 'Status'])
+                            st.dataframe(table_df, use_container_width=True)
+                        
+                        with col2:
+                            discoveries = analysis['Discoveries']
+                            if category in discoveries and discoveries[category]:
+                                st.markdown("**Key Discoveries:**")
+                                st.markdown("""
+                                <div class="bullet-list">
+                                """, unsafe_allow_html=True)
+                                
+                                for discovery in discoveries[category]:
+                                    st.markdown(f"{discovery}")
+                                
+                                st.markdown("</div>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("**Key Discoveries:**")
+                                st.info("No specific discoveries available for this category.")
                     
                     st.markdown("---")
             
             with tab5:
-                # Competitive analysis (existing functionality)
+                # Competitive analysis
                 st.markdown("## 🏆 Competitive Analysis")
                 if len(all_results) > 1:
                     radar_chart = create_comparison_chart(comparison_df)
@@ -1171,7 +1617,7 @@ def main():
                 st.dataframe(display_df, use_container_width=True)
             
             with tab6:
-                # Export functionality (existing)
+                # Export functionality
                 st.markdown("## 📥 Export Results")
                 
                 col1, col2 = st.columns(2)
@@ -1252,4 +1698,4 @@ def main():
             """)
 
 if __name__ == "__main__":
-    main() 
+    main()
